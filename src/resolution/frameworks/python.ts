@@ -177,13 +177,20 @@ export const flaskResolver: FrameworkResolver = {
   languages: ['python'],
 
   detect(context) {
-    const requirements = context.readFile('requirements.txt');
-    if (requirements && /\bflask\b/i.test(requirements)) return true;
-    const pyproject = context.readFile('pyproject.toml');
-    if (pyproject && /\bflask\b/i.test(pyproject)) return true;
-    for (const file of ['app.py', 'application.py', 'main.py', '__init__.py']) {
-      const content = context.readFile(file);
-      if (content && content.includes('Flask(__name__)')) return true;
+    for (const f of ['requirements.txt', 'pyproject.toml', 'Pipfile', 'setup.py']) {
+      const c = context.readFile(f);
+      if (c && /\bflask\b/i.test(c)) return true;
+    }
+    // Any app entrypoint (root OR subdir, e.g. conduit/app.py) that imports flask
+    // and instantiates Flask(...) — covers Flask(__name__), Flask(__name__.split…),
+    // and the app-factory pattern. Bounded to entrypoint-named files.
+    const entrypoints = context
+      .getAllFiles()
+      .filter((f) => /(?:^|\/)(app|application|main|wsgi|__init__)\.py$/.test(f))
+      .slice(0, 50);
+    for (const f of entrypoints) {
+      const c = context.readFile(f);
+      if (c && /\bFlask\s*\(/.test(c) && /\bimport\s+flask\b|\bfrom\s+flask\b/.test(c)) return true;
     }
     return false;
   },
@@ -198,17 +205,23 @@ export const flaskResolver: FrameworkResolver = {
 
   extract(filePath, content) {
     if (!filePath.endsWith('.py')) return { nodes: [], references: [] };
-    return extractDecoratorRoutes(filePath, stripCommentsForRegex(content, 'python'), {
-      // Flask: @x.route('/path', methods=[...]) — the handler is the next `def`,
-      // allowing intervening decorators (@login_required, @cache.cached) and
-      // stacked @x.route() lines (one view bound to several URLs).
-      decoratorRegex: /@(\w+)\.route\s*\(\s*['"]([^'"]*)['"](?:\s*,\s*methods\s*=\s*\[([^\]]+)\])?\s*\)/g,
+    const safe = stripCommentsForRegex(content, 'python');
+    const decorator = extractDecoratorRoutes(filePath, safe, {
+      // Flask: @x.route('/path', methods=[...] | (...)) — the handler is the next
+      // `def`, allowing intervening decorators (@login_required) and stacked
+      // @x.route() lines. methods may be a list OR a tuple (methods=('GET',)).
+      decoratorRegex: /@(\w+)\.route\s*\(\s*['"]([^'"]*)['"](?:\s*,\s*methods\s*=\s*[[(]([^\])]+)[\])])?\s*\)/g,
       defaultMethod: 'GET',
       methodFromGroup: 3,
       pathGroup: 2,
       findHandler: true,
       language: 'python',
     });
+    const restful = extractFlaskRestful(filePath, safe);
+    return {
+      nodes: [...decorator.nodes, ...restful.nodes],
+      references: [...decorator.references, ...restful.references],
+    };
   },
 };
 
@@ -309,6 +322,52 @@ function extractDecoratorRoutes(filePath: string, content: string, opts: Decorat
       references.push({
         fromNodeId: routeNode.id,
         referenceName: handlerName,
+        referenceKind: 'references',
+        line,
+        column: 0,
+        filePath,
+        language: 'python',
+      });
+    }
+  }
+  return { nodes, references };
+}
+
+/**
+ * Flask-RESTful: `api.add_resource(ResourceClass, '/path'[, '/path2'])`
+ * (and variants like redash's `add_org_resource`). The ResourceClass holds the
+ * HTTP-verb methods (get/post/…), so the route references the class — its verb
+ * methods resolve as the handlers via the class. Method is ANY (the class
+ * decides which verbs it serves).
+ */
+function extractFlaskRestful(filePath: string, safe: string): FrameworkExtractionResult {
+  const nodes: Node[] = [];
+  const references: UnresolvedRef[] = [];
+  const now = Date.now();
+  const re = /\.add\w*[Rr]esource\s*\(\s*(\w+)\s*,\s*((?:['"][^'"]+['"]\s*,?\s*)+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(safe)) !== null) {
+    const className = m[1]!;
+    const paths = (m[2]!.match(/['"]([^'"]+)['"]/g) || []).map((s) => s.slice(1, -1));
+    const line = safe.slice(0, m.index).split('\n').length;
+    for (const routePath of paths) {
+      const routeNode: Node = {
+        id: `route:${filePath}:${line}:ANY:${routePath}`,
+        kind: 'route',
+        name: `ANY ${routePath}`,
+        qualifiedName: `${filePath}::ANY:${routePath}`,
+        filePath,
+        startLine: line,
+        endLine: line,
+        startColumn: 0,
+        endColumn: 0,
+        language: 'python',
+        updatedAt: now,
+      };
+      nodes.push(routeNode);
+      references.push({
+        fromNodeId: routeNode.id,
+        referenceName: className,
         referenceKind: 'references',
         line,
         column: 0,

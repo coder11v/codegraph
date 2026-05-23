@@ -148,6 +148,27 @@ def index():
     expect(nodes.map((n) => n.name)).toEqual(['GET /', 'GET /index']);
     expect(references.map((r) => r.referenceName)).toEqual(['index', 'index']);
   });
+
+  it('extracts the method from a tuple methods=(...) (not just a list)', () => {
+    const src = `
+@blueprint.route('/api/articles', methods=('POST',))
+def make_article():
+    pass
+`;
+    const { nodes, references } = flaskResolver.extract!('views.py', src);
+    expect(nodes[0].name).toBe('POST /api/articles');
+    expect(references[0].referenceName).toBe('make_article');
+  });
+
+  it('extracts Flask-RESTful api.add_resource(Resource, paths) → the Resource class', () => {
+    const src = `
+api.add_resource(TodoResource, '/todos/<id>')
+api.add_org_resource(AlertResource, '/api/alerts/<id>', endpoint='alert')
+`;
+    const { nodes, references } = flaskResolver.extract!('api.py', src);
+    expect(nodes.map((n) => n.name)).toEqual(['ANY /todos/<id>', 'ANY /api/alerts/<id>']);
+    expect(references.map((r) => r.referenceName)).toEqual(['TodoResource', 'AlertResource']);
+  });
 });
 
 describe('fastapiResolver.extract', () => {
