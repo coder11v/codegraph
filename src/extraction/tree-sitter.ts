@@ -516,7 +516,7 @@ export class TreeSitterExtractor {
   /**
    * Extract a function
    */
-  private extractFunction(node: SyntaxNode): void {
+  private extractFunction(node: SyntaxNode, nameOverride?: string): void {
     if (!this.extractor) return;
 
     // If the language provides getReceiverType and this function has a receiver
@@ -526,12 +526,17 @@ export class TreeSitterExtractor {
       return;
     }
 
-    let name = extractName(node, this.source, this.extractor);
+    // nameOverride is supplied only for explicitly-named anonymous functions the
+    // caller resolved itself (e.g. arrow values of exported-const object members
+    // — SvelteKit actions). Inline-object arrows reached by the general walker
+    // get no override, so they still fall through to the <anonymous> skip below.
+    let name = nameOverride ?? extractName(node, this.source, this.extractor);
     // For arrow functions and function expressions assigned to variables,
     // resolve the name from the parent variable_declarator.
     // e.g. `export const useAuth = () => { ... }` — the arrow_function node
     // has no `name` field; the name lives on the variable_declarator.
     if (
+      !nameOverride &&
       name === '<anonymous>' &&
       (node.type === 'arrow_function' || node.type === 'function_expression')
     ) {
@@ -1056,6 +1061,25 @@ export class TreeSitterExtractor {
             // Extract type annotation references (e.g., const x: ITextModel = ...)
             if (varNode) {
               this.extractVariableTypeAnnotation(child, varNode.id);
+            }
+
+            // Exported const object-of-functions: `export const actions =
+            // { default: async () => {} }` (SvelteKit form actions / handler maps
+            // / route tables). Extract each function-valued property as a function
+            // named by its key + walk its body so its calls (e.g. api.post) are
+            // captured. Scoped to EXPORTED consts to exclude the inline-object
+            // noise (`ctx.set({...})`) the object-method skip deliberately avoids.
+            if (isExported && valueNode &&
+                (valueNode.type === 'object' || valueNode.type === 'object_expression')) {
+              for (let j = 0; j < valueNode.namedChildCount; j++) {
+                const pair = valueNode.namedChild(j);
+                if (pair?.type !== 'pair') continue;
+                const v = getChildByField(pair, 'value');
+                const k = getChildByField(pair, 'key');
+                if (k && v && (v.type === 'arrow_function' || v.type === 'function_expression')) {
+                  this.extractFunction(v, getNodeText(k, this.source).replace(/^['"`]|['"`]$/g, ''));
+                }
+              }
             }
           }
         }
