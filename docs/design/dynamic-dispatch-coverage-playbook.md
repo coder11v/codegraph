@@ -174,7 +174,7 @@ Status legend: ✅ done+validated · 🔬 hole identified · ⬜ not started.
 | Language | Framework(s) | Canonical flow to test | Mechanism | Status |
 |---|---|---|---|---|
 | TypeScript/JS | React / observer / EventEmitter | state→render; dispatch→callback | S + X | ✅ (excalidraw) |
-| TypeScript/JS | Vue / Nuxt | reactive dep → render | ? | ⬜ |
+| TypeScript/JS | Vue / Nuxt | template events (@click→handler); component composition; reactive→render | S + X | ✅ events + composition (vitepress S / vben M / element-plus L); 🔬 reactive→render (vue-core Proxy runtime — frontier, deferred) |
 | TypeScript/JS | Svelte / SvelteKit | store → DOM update | ? | ⬜ |
 | TypeScript/JS | Express / Koa | request → middleware → handler | ? | ⬜ |
 | TypeScript/JS | NestJS | request → controller → provider | ? | ⬜ |
@@ -205,6 +205,18 @@ Status legend: ✅ done+validated · 🔬 hole identified · ⬜ not started.
 - **Coverage enables, doesn't force, the no-read path.** Agents still read to *confirm
   source* sometimes; cost stays ~flat (codegraph calls trade for reads). The reliable
   win is **completeness** + making Read-0 *possible*. Don't expect a guaranteed cost drop.
+- **Vue (validated 2026-05-23, vitepress S / vben M / element-plus L).** SFC `<template>`
+  is unparsed by the extractor, so template usage needs synthesis (`vueTemplateEdges`):
+  `@click="fn"` → handler, kebab `<el-button>` → `ElButton`. PascalCase `<Child/>` is
+  already covered by the JSX channel (the SFC component node spans the template). Result:
+  agent reads drop in every size (vben login 1–3 vs 4–11), **strongest where handlers are
+  local functions** (vben `handleLogin`/`handleSubmit`). Two real limits left:
+  (1) **composable-destructure handlers** — `@click="closeSidebar"` where
+  `const { close: closeSidebar } = useSidebarControl()`; the handler isn't a fn node, so
+  it doesn't resolve (vitepress sidebar → 6 reads). Needs destructure→composable-return
+  tracking — a data-flow frontier, deferred. (2) **prefix-convention kebab** — element-plus
+  `el-button` → `button.vue` (component named `button`, not `ElButton`), so kebab stays
+  unresolved there. reactive→render (vue-core Proxy runtime) is the deep frontier, also deferred.
 - **Difficulty gradient is real:** named-ref dispatch (resolver) is cheap; anonymous
   callback dispatch (synthesizer) is medium; **anonymous-arrow handlers are the hard
   remaining gap** (no identity → need synthesizer link-through-body, not yet built).
