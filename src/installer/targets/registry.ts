@@ -31,6 +31,7 @@ import { cortexTarget } from './cortex';
 import { crushTarget } from './crush';
 import { deepagentsTarget } from './deepagents';
 import { devinTarget } from './devin';
+import { droidTarget } from './droid';
 
 import { aiderTarget } from './aider';
 export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
@@ -58,6 +59,7 @@ export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
   crushTarget,
   deepagentsTarget,
   devinTarget,
+  droidTarget,
 ]);
 
 export function getTarget(id: string): AgentTarget | undefined {
