@@ -28,6 +28,7 @@ import { codestudioTarget } from './codestudio';
 import { commandCodeTarget } from './command-code';
 import { continueTarget } from './continue';
 import { cortexTarget } from './cortex';
+import { crushTarget } from './crush';
 
 import { aiderTarget } from './aider';
 export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
@@ -52,6 +53,7 @@ export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
   commandCodeTarget,
   continueTarget,
   cortexTarget,
+  crushTarget,
 ]);
 
 export function getTarget(id: string): AgentTarget | undefined {
