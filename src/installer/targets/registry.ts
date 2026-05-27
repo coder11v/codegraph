@@ -33,6 +33,7 @@ import { deepagentsTarget } from './deepagents';
 import { devinTarget } from './devin';
 import { droidTarget } from './droid';
 import { firebenderTarget } from './firebender';
+import { forgecodeTarget } from './forgecode';
 
 import { aiderTarget } from './aider';
 export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
@@ -62,6 +63,7 @@ export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
   devinTarget,
   droidTarget,
   firebenderTarget,
+  forgecodeTarget,
 ]);
 
 export function getTarget(id: string): AgentTarget | undefined {
