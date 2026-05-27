@@ -38,6 +38,7 @@ import { githubCopilotTarget } from './github-copilot';
 import { gooseTarget } from './goose';
 import { junieTarget } from './junie';
 import { iflowTarget } from './iflow';
+import { kilocodeTarget } from './kilocode';
 
 import { aiderTarget } from './aider';
 export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
@@ -72,6 +73,7 @@ export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
   gooseTarget,
   junieTarget,
   iflowTarget,
+  kilocodeTarget,
 ]);
 
 export function getTarget(id: string): AgentTarget | undefined {
