@@ -40,6 +40,7 @@ import { junieTarget } from './junie';
 import { iflowTarget } from './iflow';
 import { kilocodeTarget } from './kilocode';
 import { mcpjamTarget } from './mcpjam';
+import { mistralVibeTarget } from './mistral-vibe';
 
 import { aiderTarget } from './aider';
 export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
@@ -76,6 +77,7 @@ export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
   iflowTarget,
   kilocodeTarget,
   mcpjamTarget,
+  mistralVibeTarget,
 ]);
 
 export function getTarget(id: string): AgentTarget | undefined {
