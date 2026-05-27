@@ -36,6 +36,7 @@ import { firebenderTarget } from './firebender';
 import { forgecodeTarget } from './forgecode';
 import { githubCopilotTarget } from './github-copilot';
 import { gooseTarget } from './goose';
+import { junieTarget } from './junie';
 
 import { aiderTarget } from './aider';
 export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
@@ -68,6 +69,7 @@ export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
   forgecodeTarget,
   githubCopilotTarget,
   gooseTarget,
+  junieTarget,
 ]);
 
 export function getTarget(id: string): AgentTarget | undefined {
