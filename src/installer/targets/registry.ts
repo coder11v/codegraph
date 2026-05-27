@@ -17,6 +17,7 @@ import { geminiTarget } from './gemini';
 import { antigravityTarget } from './antigravity';
 import { kiroTarget } from './kiro';
 import { ampTarget } from './amp';
+import { augmentTarget } from './augment';
 
 import { aiderTarget } from './aider';
 export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
@@ -30,6 +31,7 @@ export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
   kiroTarget,
   aiderTarget,
   ampTarget,
+  augmentTarget,
 ]);
 
 export function getTarget(id: string): AgentTarget | undefined {
