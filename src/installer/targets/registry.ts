@@ -54,6 +54,7 @@ import { traeCnTarget } from './trae-cn';
 import { windsurfTarget } from './windsurf';
 import { zencoderTarget } from './zencoder';
 import { neovateTarget } from './neovate';
+import { pochipochiTarget } from './pochipochi';
 
 import { aiderTarget } from './aider';
 export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
@@ -104,6 +105,7 @@ export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
   windsurfTarget,
   zencoderTarget,
   neovateTarget,
+  pochipochiTarget,
 ]);
 
 export function getTarget(id: string): AgentTarget | undefined {
