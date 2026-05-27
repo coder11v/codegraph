@@ -2,7 +2,7 @@
 
 # CodeGraph
 
-### Supercharge Claude Code, Cursor, Codex, OpenCode, Hermes Agent, Gemini, Antigravity, and Kiro with Semantic Code Intelligence
+### Supercharge Claude Code, Cursor, Codex, OpenCode, Hermes Agent, Gemini, Antigravity, and 40 more agents with Semantic Code Intelligence
 
 **~35% cheaper · ~70% fewer tool calls · 100% local**
 
@@ -18,6 +18,10 @@
 
 [![Claude Code](https://img.shields.io/badge/Claude_Code-supported-blueviolet.svg)](#supported-agents)
 [![Cursor](https://img.shields.io/badge/Cursor-supported-blueviolet.svg)](#supported-agents)
+[![Windsurf](https://img.shields.io/badge/Windsurf-supported-blueviolet.svg)](#supported-agents)
+[![Aider](https://img.shields.io/badge/Aider-supported-blueviolet.svg)](#supported-agents)
+[![Cline](https://img.shields.io/badge/Cline-supported-blueviolet.svg)](#supported-agents)
+[![Roo Code](https://img.shields.io/badge/Roo_Code-supported-blueviolet.svg)](#supported-agents)
 [![Codex](https://img.shields.io/badge/Codex-supported-blueviolet.svg)](#supported-agents)
 [![opencode](https://img.shields.io/badge/opencode-supported-blueviolet.svg)](#supported-agents)
 [![Hermes Agent](https://img.shields.io/badge/Hermes_Agent-supported-blueviolet.svg)](#supported-agents)
@@ -46,7 +50,7 @@ npx @colbymchenry/codegraph        # zero-install, or:
 npm i -g @colbymchenry/codegraph
 ```
 
-<sub>CodeGraph bundles its own runtime — nothing to compile, no native build, works the same everywhere. The interactive installer auto-configures your agent(s) — Claude Code, Cursor, Codex CLI, opencode, Hermes Agent, Gemini CLI, Antigravity IDE, Kiro.</sub>
+<sub>CodeGraph bundles its own runtime — nothing to compile, no native build, works the same everywhere. The interactive installer auto-configures 50+ supported agents including Claude Code, Cursor, Aider, Cline, Windsurf, Roo Code, and more.</sub>
 
 ### Initialize Projects
 
@@ -233,7 +237,7 @@ npx @colbymchenry/codegraph
 ```
 
 The installer will:
-- Ask which agent(s) to configure — auto-detects installed ones from: **Claude Code**, **Cursor**, **Codex CLI**, **opencode**, **Hermes Agent**, **Gemini CLI**, **Antigravity IDE**, **Kiro**
+- Ask which agent(s) to configure — auto-detects installed ones from 50+ supported agents (Claude Code, Cursor, Aider, Cline, Windsurf, Roo Code, etc.)
 - Prompt to install `codegraph` on your PATH (so agents can launch the MCP server)
 - Ask whether configs apply to all your projects or just this one
 - Write each chosen agent's MCP server config + an instructions file (e.g. `CLAUDE.md`, `.cursor/rules/codegraph.mdc`, `~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md`)
@@ -259,7 +263,7 @@ codegraph install --print-config codex               # print snippet, no file wr
 
 ### 2. Restart Your Agent
 
-Restart your agent (Claude Code / Cursor / Codex CLI / opencode / Hermes Agent / Gemini CLI / Antigravity IDE / Kiro) for the MCP server to load.
+Restart your agent for the MCP server to load.
 
 ### 3. Initialize Projects
 
@@ -519,14 +523,60 @@ See [Get Started](#get-started) for the one-line install commands.
 The interactive installer auto-detects and configures each of these — wiring up
 the MCP server and writing its instructions file:
 
-- **Claude Code**
-- **Cursor**
-- **Codex CLI**
-- **opencode**
-- **Hermes Agent**
-- **Gemini CLI**
+<details>
+<summary><strong>View all 50+ Supported Agents</strong></summary>
+
+- **Ada L**
+- **Aider Desk**
+- **Amp / Kimi / Replit / Universal**
 - **Antigravity IDE**
+- **Augment**
+- **Claude Code**
+- **Cline / Dexto / Warp**
+- **Code Studio**
+- **CodeArts Agent**
+- **CodeBuddy**
+- **Codemaker**
+- **Codex CLI**
+- **Command Code**
+- **Continue**
+- **Cortex Code**
+- **Crush**
+- **Cursor**
+- **Deep Agents**
+- **Devin for Terminal**
+- **Droid**
+- **Firebender**
+- **ForgeCode**
+- **Gemini CLI**
+- **GitHub Copilot**
+- **Goose**
+- **Hermes Agent**
+- **IBM Bob**
+- **iFlow CLI**
+- **Junie**
+- **Kilo Code**
 - **Kiro**
+- **MCPJam**
+- **Mistral Vibe**
+- **Mux**
+- **Neovate**
+- **OpenClaw**
+- **opencode**
+- **OpenHands**
+- **Pi**
+- **Pochi**
+- **Qoder**
+- **Qwen Code**
+- **Roo Code**
+- **Rovo Dev**
+- **Tabnine CLI**
+- **Trae**
+- **Trae CN**
+- **Windsurf**
+- **Zencoder**
+
+</details>
 
 ## Supported Languages
 
