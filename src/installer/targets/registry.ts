@@ -21,6 +21,7 @@ import { augmentTarget } from './augment';
 import { bobTarget } from './bob';
 import { openclawTarget } from './openclaw';
 import { clineTarget } from './cline';
+import { codeartsTarget } from './codearts';
 
 import { aiderTarget } from './aider';
 export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
@@ -38,6 +39,7 @@ export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
   bobTarget,
   openclawTarget,
   clineTarget,
+  codeartsTarget,
 ]);
 
 export function getTarget(id: string): AgentTarget | undefined {
