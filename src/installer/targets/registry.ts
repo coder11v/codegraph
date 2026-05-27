@@ -50,6 +50,7 @@ import { rovodevTarget } from './rovodev';
 import { rooTarget } from './roo';
 import { tabnineTarget } from './tabnine';
 import { traeTarget } from './trae';
+import { traeCnTarget } from './trae-cn';
 
 import { aiderTarget } from './aider';
 export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
@@ -96,6 +97,7 @@ export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
   rooTarget,
   tabnineTarget,
   traeTarget,
+  traeCnTarget,
 ]);
 
 export function getTarget(id: string): AgentTarget | undefined {
