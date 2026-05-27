@@ -27,6 +27,7 @@ import { codemakerTarget } from './codemaker';
 import { codestudioTarget } from './codestudio';
 import { commandCodeTarget } from './command-code';
 import { continueTarget } from './continue';
+import { cortexTarget } from './cortex';
 
 import { aiderTarget } from './aider';
 export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
@@ -50,6 +51,7 @@ export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
   codestudioTarget,
   commandCodeTarget,
   continueTarget,
+  cortexTarget,
 ]);
 
 export function getTarget(id: string): AgentTarget | undefined {
