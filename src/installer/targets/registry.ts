@@ -44,6 +44,7 @@ import { mistralVibeTarget } from './mistral-vibe';
 import { muxTarget } from './mux';
 import { openhandsTarget } from './openhands';
 import { pipiTarget } from './pipi';
+import { qoderTarget } from './qoder';
 
 import { aiderTarget } from './aider';
 export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
@@ -84,6 +85,7 @@ export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
   muxTarget,
   openhandsTarget,
   pipiTarget,
+  qoderTarget,
 ]);
 
 export function getTarget(id: string): AgentTarget | undefined {
