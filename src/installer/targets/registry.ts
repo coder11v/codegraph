@@ -46,6 +46,7 @@ import { openhandsTarget } from './openhands';
 import { pipiTarget } from './pipi';
 import { qoderTarget } from './qoder';
 import { qwenTarget } from './qwen';
+import { rovodevTarget } from './rovodev';
 
 import { aiderTarget } from './aider';
 export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
@@ -88,6 +89,7 @@ export const ALL_TARGETS: readonly AgentTarget[] = Object.freeze([
   pipiTarget,
   qoderTarget,
   qwenTarget,
+  rovodevTarget,
 ]);
 
 export function getTarget(id: string): AgentTarget | undefined {
