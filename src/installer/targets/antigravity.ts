@@ -30,8 +30,35 @@ function skillsDir(loc: Location): string {
     : path.join(os.homedir(), '~/.gemini/antigravity/skills'.replace(/^~\//, ''));
 }
 
-function mcpJsonPath(loc: Location): string {
-  return path.join(configDir(loc), 'mcp.json');
+/**
+ * Resolve the on-disk path of the `codegraph` binary so a Mac GUI app
+ * launched from Dock/Finder (with a stripped PATH) can find it. Falls
+ * back to the bare `codegraph` name when:
+ *
+ *  - we're not on macOS (Linux GUI apps inherit user PATH; Windows
+ *    uses env PATH directly), OR
+ *  - the lookup fails for any reason (preserving install in restricted
+ *    environments where `which`/`command -v` aren't available).
+ *
+ * Resolution prefers `command -v` (built-in, no PATH manipulation),
+ * with `which` as a fallback. Both are read via the user's interactive
+ * shell PATH at install time — that's the right PATH for finding
+ * nvm-managed tools like ours.
+ */
+function resolveCodegraphCommand(): string {
+  if (process.platform !== 'darwin') return 'codegraph';
+  try {
+    const resolved = execSync('command -v codegraph || which codegraph', {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      shell: '/bin/bash',
+      windowsHide: true,
+    }).trim();
+    if (resolved && fs.existsSync(resolved)) return resolved;
+  } catch {
+    /* fall through to bare name */
+  }
+  return 'codegraph';
 }
 
 function steeringPath(loc: Location): string {

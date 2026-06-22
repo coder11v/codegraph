@@ -37,8 +37,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn, StdioOptions } from 'child_process';
-import { findNearestCodeGraphRoot } from '../index';
-import { getCodeGraphDir } from '../directory';
+import { findNearestCodeGraphRoot, getCodeGraphDir } from '../directory';
 import { StdioTransport } from './transport';
 import { MCPEngine } from './engine';
 import { MCPSession } from './session';
@@ -48,8 +47,12 @@ import {
   isProcessAlive,
   tryAcquireDaemonLock,
 } from './daemon';
-import { runProxy } from './proxy';
+import { connectWithHello, runLocalHandshakeProxy } from './proxy';
 import { getDaemonSocketPath } from './daemon-paths';
+import { getTelemetry } from '../telemetry';
+import { supervisionLostReason } from './ppid-watchdog';
+import { installMainThreadWatchdog, WatchdogHandle } from './liveness-watchdog';
+import { treatStdinFailureAsShutdown } from './stdin-teardown';
 import { HOST_PPID_ENV } from '../extraction/wasm-runtime-flags';
 
 /**
@@ -82,8 +85,14 @@ const TAKEOVER_RETRY_DELAY_MS = 100;
  * process startup. 60 × 100ms = 6s of headroom for a cold/slow box; on the
  * common path the socket appears within a few rounds.
  */
-const DAEMON_CONNECT_MAX_RETRIES = 60;
-const DAEMON_CONNECT_RETRY_DELAY_MS = 100;
+// Poll finely (25ms) so the proxy attaches the instant the freshly-spawned
+// daemon binds, instead of waiting up to a coarse 100ms after — shaves the
+// cold-start handshake (the window the headless agent races). Same ~6s total
+// give-up budget (240 × 25ms), just finer granularity; socket-connect probes
+// are cheap. Paired with deferring the CodeGraph load (engine.ts) off the bind
+// path, this narrows the "No such tool available" race window.
+const DAEMON_CONNECT_MAX_RETRIES = 240;
+const DAEMON_CONNECT_RETRY_DELAY_MS = 25;
 
 /**
  * Resolve the PPID watchdog poll interval from an env override. A value of
@@ -212,6 +221,9 @@ export class MCPServer {
   private engine: MCPEngine | null = null;
   private daemon: Daemon | null = null;
   private ppidWatchdog: ReturnType<typeof setInterval> | null = null;
+  // Worker-thread liveness watchdog (#850). Long-lived modes only; SIGKILLs the
+  // process if the main thread wedges in a non-yielding sync loop.
+  private livenessWatchdog: WatchdogHandle | null = null;
   // PPID watchdog baseline — captured at construction so we always have a
   // baseline, even if start() runs after a fork-style reparent.
   private originalPpid: number = process.ppid;
@@ -238,6 +250,11 @@ export class MCPServer {
    * mode — a misbehaving daemon must never block a session from starting.
    */
   async start(): Promise<void> {
+    // Long-lived process (direct / proxy / daemon alike): flush buffered
+    // telemetry opportunistically. Fire-and-forget + unref'd — adds nothing
+    // to the handshake path and never keeps the process alive.
+    getTelemetry().startInterval();
+
     // The detached daemon process itself. Checked before the opt-out so the
     // daemon honors the same env it was spawned with (it never sets NO_DAEMON).
     if (daemonInternalSet()) {
@@ -258,21 +275,20 @@ export class MCPServer {
     }
 
     try {
-      const mode = await this.connectOrSpawnDaemon(root);
-      if (mode === 'fallback') {
-        return this.startDirect('daemon unavailable; fallback to direct');
-      }
-      // 'proxy': connectOrSpawnDaemon ran the stdio↔socket pipe to completion
-      // (it only returns once the host disconnected). The process is now
-      // expected to terminate naturally — the proxy installed its own watchdog.
+      // Answer the MCP handshake LOCALLY (instant tool registration — no waiting
+      // ~600ms for the daemon to spawn+bind, which produced the cold-start race)
+      // and forward tool CALLS to the shared daemon, connected in the background.
+      // Runs until the host disconnects; the proxy installs its own watchdog and
+      // falls back to an in-process engine if the daemon never comes up.
       this.mode = 'proxy';
+      await this.runProxyWithLocalHandshake(root);
       return;
     } catch (err) {
-      // Belt-and-braces: if anything throws inside the daemon machinery,
-      // never wedge the user — fall back to a working direct-mode session.
+      // Belt-and-braces: a throw during proxy SETUP (before the client was served)
+      // is still safe to recover from with a direct-mode session.
       const msg = err instanceof Error ? err.message : String(err);
-      process.stderr.write(`[CodeGraph MCP] Daemon path failed (${msg}); falling back to direct mode.\n`);
-      return this.startDirect('daemon path threw');
+      process.stderr.write(`[CodeGraph MCP] Proxy path failed (${msg}); falling back to direct mode.\n`);
+      return this.startDirect('proxy path threw');
     }
   }
 
@@ -287,6 +303,10 @@ export class MCPServer {
     if (this.ppidWatchdog) {
       clearInterval(this.ppidWatchdog);
       this.ppidWatchdog = null;
+    }
+    if (this.livenessWatchdog) {
+      this.livenessWatchdog.stop();
+      this.livenessWatchdog = null;
     }
     if (this.daemon) {
       void this.daemon.stop('stop()');
@@ -325,12 +345,15 @@ export class MCPServer {
     // Detect parent-process death — same logic as pre-refactor. When stdin
     // closes we go through StdioTransport's `process.exit(0)` already, but
     // SIGKILL of the parent doesn't reliably close stdin on Linux (#277).
-    process.stdin.on('end', () => this.stop());
-    process.stdin.on('close', () => this.stop());
+    // Also treat a stdin `'error'` (a socket-backed stdin can fail with
+    // ECONNRESET/hangup instead of a clean close) as shutdown, and destroy the
+    // stream so a hung fd can't busy-spin the event loop (#799).
+    treatStdinFailureAsShutdown(() => this.stop());
 
     this.mode = 'direct';
     this.installSignalHandlers();
     this.installPpidWatchdog();
+    this.livenessWatchdog = installMainThreadWatchdog();
   }
 
   /**
@@ -352,6 +375,10 @@ export class MCPServer {
         await daemon.start();
         this.daemon = daemon;
         this.mode = 'daemon';
+        // The detached daemon has no PPID watchdog or stdin lifeline, so a
+        // wedged main thread would pin a core forever (#850). The liveness
+        // watchdog is its only recovery path.
+        this.livenessWatchdog = installMainThreadWatchdog();
         return; // the net.Server keeps the process alive
       }
 
@@ -376,32 +403,31 @@ export class MCPServer {
   }
 
   /**
-   * Become a proxy to the shared daemon, spawning the daemon first if none is
-   * reachable. Returns 'proxy' once the proxied session has run to completion
-   * (the host disconnected), or 'fallback' if the caller should run in-process.
+   * Proxy mode (the common case). Serve the MCP handshake LOCALLY for instant
+   * tool registration, forwarding tool calls to the shared daemon — which is
+   * connected in the background (probed, then spawned + polled if absent) so the
+   * handshake never waits ~600ms on it. Runs until the host disconnects; the
+   * proxy falls back to an in-process engine if the daemon never binds, so this
+   * never wedges a session.
    */
-  private async connectOrSpawnDaemon(root: string): Promise<'proxy' | 'fallback'> {
+  private async runProxyWithLocalHandshake(root: string): Promise<void> {
     const socketPath = getDaemonSocketPath(root);
-
-    // Fast path: a daemon may already be listening. On success runProxy pipes
-    // stdio until the host disconnects, so a 'proxied' outcome means this
-    // process has finished its entire job.
-    let probe = await runProxy(socketPath);
-    if (probe.outcome === 'proxied') return 'proxy';
-    if (probe.reason === 'version mismatch') return 'fallback';
-
-    // No reachable daemon — spawn one (detached) and wait for it to bind.
-    spawnDetachedDaemon(root);
-
-    for (let attempt = 0; attempt < DAEMON_CONNECT_MAX_RETRIES; attempt++) {
-      await sleep(DAEMON_CONNECT_RETRY_DELAY_MS);
-      probe = await runProxy(socketPath);
-      if (probe.outcome === 'proxied') return 'proxy';
-      if (probe.reason === 'version mismatch') return 'fallback';
-    }
-
-    // Daemon never came up in time — run in-process so the user is never blocked.
-    return 'fallback';
+    const getDaemonSocket = async () => {
+      // Fast path: a daemon may already be listening.
+      const probe = await connectWithHello(socketPath);
+      if (probe === 'version-mismatch') return null; // definitive — serve in-process, don't poll for 6s
+      if (probe) return probe;
+      // None reachable — spawn one (detached) and poll for its bind.
+      spawnDetachedDaemon(root);
+      for (let attempt = 0; attempt < DAEMON_CONNECT_MAX_RETRIES; attempt++) {
+        await sleep(DAEMON_CONNECT_RETRY_DELAY_MS);
+        const s = await connectWithHello(socketPath);
+        if (s === 'version-mismatch') return null;
+        if (s) return s;
+      }
+      return null; // never bound — the proxy serves this session in-process
+    };
+    await runLocalHandshakeProxy({ getDaemonSocket, makeEngine: () => new MCPEngine(), root });
   }
 
   /** Standard SIGINT/SIGTERM handlers that route to our `stop()` (direct mode). */
@@ -420,13 +446,13 @@ export class MCPServer {
     const pollMs = parsePpidPollMs(process.env.CODEGRAPH_PPID_POLL_MS);
     if (pollMs <= 0) return;
     this.ppidWatchdog = setInterval(() => {
-      const current = process.ppid;
-      const ppidChanged = current !== this.originalPpid;
-      const hostGone = this.hostPpid !== null && !isProcessAlive(this.hostPpid);
-      if (ppidChanged || hostGone) {
-        const reason = ppidChanged
-          ? `ppid ${this.originalPpid} -> ${current}`
-          : `host pid ${this.hostPpid} exited`;
+      const reason = supervisionLostReason({
+        originalPpid: this.originalPpid,
+        currentPpid: process.ppid,
+        hostPpid: this.hostPpid,
+        isAlive: isProcessAlive,
+      });
+      if (reason) {
         process.stderr.write(
           `[CodeGraph MCP] Parent process exited (${reason}); shutting down.\n`
         );
